@@ -5,135 +5,112 @@ import logging
 import requests
 from datetime import datetime
 
-# =============================================
-# CONFIGURACION — NO TOCAR
-# =============================================
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 CHANNEL = "@radarventasml"
 AFFILIATE_ID = os.environ.get("AFFILIATE_ID", "")
 HORAS_ENTRE_POSTS = 4
-# =============================================
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(_name_)
 
 BUSQUEDAS = [
-    ("auriculares bluetooth", "🎧"),
-    ("smartwatch", "⌚"),
-    ("cargador rapido", "⚡"),
-    ("parlante portatil", "🔊"),
-    ("tablet", "📱"),
-    ("notebook", "💻"),
-    ("herramienta electrica", "🔧"),
-    ("cafetera", "☕"),
-    ("aspiradora", "🏠"),
-    ("zapatillas running", "👟"),
-    ("camara de seguridad", "📷"),
-    ("power bank", "🔋"),
-    ("mouse inalambrico", "🖱️"),
-    ("teclado mecanico", "⌨️"),
-    ("silla gamer", "🪑"),
+    ("auriculares bluetooth", "Auriculares"),
+    ("smartwatch", "Smartwatch"),
+    ("cargador rapido", "Cargador"),
+    ("parlante portatil", "Parlante"),
+    ("tablet", "Tablet"),
+    ("notebook", "Notebook"),
+    ("herramienta electrica", "Herramienta"),
+    ("cafetera", "Cafetera"),
+    ("aspiradora", "Aspiradora"),
+    ("zapatillas running", "Zapatillas"),
+    ("camara de seguridad", "Camara"),
+    ("power bank", "Power Bank"),
+    ("mouse inalambrico", "Mouse"),
+    ("teclado mecanico", "Teclado"),
+    ("silla gamer", "Silla"),
 ]
 
 def get_oferta():
-    busqueda, emoji = random.choice(BUSQUEDAS)
-    
+    busqueda, categoria = random.choice(BUSQUEDAS)
     url = "https://api.mercadolibre.com/sites/MLA/search"
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
-    params = {
-        "q": busqueda,
-        "sort": "relevance",
-        "limit": 20,
-        "condition": "new",
-        "attributes": "id,title,price,original_price,permalink,seller",
-    }
-    
+    headers = {"User-Agent": "Mozilla/5.0"}
+    params = {"q": busqueda, "sort": "relevance", "limit": 20, "condition": "new"}
     try:
         r = requests.get(url, params=params, headers=headers, timeout=15)
         r.raise_for_status()
         data = r.json()
         results = data.get("results", [])
-        
-        con_descuento = [
-            p for p in results
-            if p.get("original_price") and p.get("price")
-            and p["original_price"] > p["price"]
-        ]
-        
+        con_descuento = [p for p in results if p.get("original_price") and p.get("price") and p["original_price"] > p["price"]]
         pool = con_descuento if con_descuento else results
-        
         if not pool:
             return None, None, None
-            
         producto = random.choice(pool[:8])
-        return producto, emoji, busqueda
-        
+        return producto, categoria, busqueda
     except Exception as e:
-        log.error(f"Error en API ML: {e}")
+        log.error("Error en API ML: %s", e)
         return None, None, None
 
 def build_affiliate_link(url_producto):
     sep = "&" if "?" in url_producto else "?"
-    return f"{url_producto}{sep}aff_id={AFFILIATE_ID}&aff_platform=telegram"
+    return "%s%saff_id=%s" % (url_producto, sep, AFFILIATE_ID)
 
 def formatear_precio(precio):
-    return f"${precio:,.0f}".replace(",", ".")
+    return "$%s" % "{:,.0f}".format(precio).replace(",", ".")
 
-def build_mensaje(producto, emoji, busqueda):
+def build_mensaje(producto, categoria, busqueda):
     titulo = producto.get("title", "")[:70]
     precio = producto.get("price", 0)
     precio_original = producto.get("original_price")
     url = producto.get("permalink", "")
     vendedor = producto.get("seller", {}).get("nickname", "")
-    
     link = build_affiliate_link(url)
-    
     descuento_txt = ""
     if precio_original and precio_original > precio:
         pct = int((1 - precio / precio_original) * 100)
-        precio_original_fmt = formatear_precio(precio_original)
-        descuento_txt = f"🔻 -{pct}% OFF (antes {precio_original_fmt})\n"
-    
+        descuento_txt = "-%s%% OFF (antes %s)\n" % (pct, formatear_precio(precio_original))
     hora = datetime.now().strftime("%H:%M")
-    
-    msg = (
-        f"{emoji} {titulo}\n\n"
-        f"💰 {formatear_precio(precio)}\n"
-        f"{descuento_txt}"
-        f"✅ Producto nuevo\n"
-        f"{'🏪 ' + vendedor + chr(10) if vendedor else ''}\n"
-        f"👉 [Ver en Mercado Libre]({link})\n\n"
-        f"🕐 {hora} hs — Radar Ventas ML"
-    )
+    msg = "%s\n\n%s\n%s%s\nVer en Mercado Libre: %s\n\n%s hs - Radar Ventas ML" % (
+        titulo, formatear_precio(precio), descuento_txt,
+        ("Vendedor: %s\n" % vendedor if vendedor else ""), link, hora)
     return msg
 
 def send_telegram(mensaje):
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": CHANNEL,
-        "text": mensaje,
-        "parse_mode": "Markdown",
-        "disable_web_page_preview": False,
-    }
+    url = "https://api.telegram.org/bot%s/sendMessage" % TELEGRAM_TOKEN
+    payload = {"chat_id": CHANNEL, "text": mensaje, "disable_web_page_preview": False}
     try:
         r = requests.post(url, json=payload, timeout=15)
         r.raise_for_status()
-        log.info("✅ Mensaje enviado")
+        log.info("Mensaje enviado OK")
         return True
     except Exception as e:
-        log.error(f"Error Telegram: {e}")
+        log.error("Error Telegram: %s", e)
         return False
 
 def run():
-    log.info("🚀 Radar Ventas ML Bot arrancando...")
-    
+    log.info("Bot arrancando...")
     if not TELEGRAM_TOKEN:
-        log.error(" Falta TELEGRAM_TOKEN")
+        log.error("Falta TELEGRAM_TOKEN")
         return
     if not AFFILIATE_ID:
-        log.error(" Falta AFFILIA
+        log.error("Falta AFFILIATE_ID")
+        return
+    log.info("Canal: %s", CHANNEL)
+    while True:
+        try:
+            log.info("Buscando oferta...")
+            producto, categoria, busqueda = get_oferta()
+            if producto:
+                mensaje = build_mensaje(producto, categoria, busqueda)
+                send_telegram(mensaje)
+            else:
+log.warning("Sin resultados, reintento en 30 min")
+                time.sleep(1800)
+                continue
+        except Exception as e:
+            log.error("Error: %s", e)
+        log.info("Proximo post en %s horas", HORAS_ENTRE_POSTS)
+        time.sleep(HORAS_ENTRE_POSTS * 3600)
+
+if _name_ == "_main_":
+    run()
