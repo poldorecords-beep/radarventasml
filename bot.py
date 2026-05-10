@@ -133,7 +133,7 @@ def run():
     log.info("🚀 Radar Ventas ML Bot arrancando...")
     
     if not TELEGRAM_TOKEN:
-        log.error("❌ Falta TELEGRAM_TOKEN")
+        log.error(" Falta TELEGRAM_TOKEN")
         return
     if not AFFILIATE_ID:
-        log.error("❌ Falta AFFILIA
+        log.error(" Falta AFFILIA
