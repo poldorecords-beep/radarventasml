@@ -64,5 +64,5 @@ def run():
             log.error("Error: %s", e)
         time.sleep(HORAS * 3600)
 
-if _name_ == "_main_":
+if __name__ == "__main__":
     run()
