@@ -7,7 +7,7 @@ AFFILIATE_ID = os.environ.get("AFFILIATE_ID", "")
 HORAS = 4
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-log = logging.getLogger(_name_)
+log = logging.getLogger(__name__)
 
 BUSQUEDAS = ["auriculares bluetooth","smartwatch","cargador rapido","notebook","tablet","cafetera","aspiradora","zapatillas running","camara de seguridad","power bank","mouse inalambrico","silla gamer"]
 
