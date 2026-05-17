@@ -15,7 +15,7 @@ BUSQUEDAS = ["auriculares bluetooth","smartwatch","cargador rapido","notebook","
 def get_oferta():
     q = random.choice(BUSQUEDAS)
     try:
-        r = requests.get("https://api.mercadolibre.com/sites/MLA/search", headers={"User-Agent":"Mozilla/5.0","Authorization":"Bearer "+ML_ACCESS_TOKEN}, params={"q":q,"sort":"relevance","limit":20,"condition":"new"}, timeout=15)
+        r = requests.get("https://api.mercadolibre.com/sites/MLA/search", headers={"User-Agent":"Mozilla/5.0","Authorization":f"Bearer {ML_ACCESS_TOKEN}", params={"q":q,"sort":"relevance","limit":20,"condition":"new"}, timeout=15)
         r.raise_for_status()
         items = r.json().get("results", [])
         desc = [p for p in items if p.get("original_price") and p.get("price") and p["original_price"] > p["price"]]
