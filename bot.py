@@ -4,7 +4,7 @@ from datetime import datetime
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 CHANNEL = "@radarventasml"
 AFFILIATE_ID = os.environ.get("AFFILIATE_ID", "")
-ML_ACCESS_TOKEN = os.environ.get("ML_ACCESS_TOKEN", "")
+ML_ACCESS_TOKEN = "APP_USR-4611908116803390-051711-42e5dddf56c6feeeb8c4a721380d0c4e-316798076"
 HORAS = 4
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
