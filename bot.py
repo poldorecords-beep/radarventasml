@@ -4,6 +4,7 @@ from datetime import datetime
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 CHANNEL = "@radarventasml"
 AFFILIATE_ID = os.environ.get("AFFILIATE_ID", "")
+ML_ACCESS_TOKEN = os.environ.get("ML_ACCESS_TOKEN", "")
 HORAS = 4
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -14,7 +15,7 @@ BUSQUEDAS = ["auriculares bluetooth","smartwatch","cargador rapido","notebook","
 def get_oferta():
     q = random.choice(BUSQUEDAS)
     try:
-        r = requests.get("https://api.mercadolibre.com/sites/MLA/search", headers={"User-Agent":"Mozilla/5.0"}, params={"q":q,"sort":"relevance","limit":20,"condition":"new"}, timeout=15)
+        r = requests.get("https://api.mercadolibre.com/sites/MLA/search", headers={"User-Agent":"Mozilla/5.0","Authorization":"Bearer "+ML_ACCESS_TOKEN}, params={"q":q,"sort":"relevance","limit":20,"condition":"new"}, timeout=15)
         r.raise_for_status()
         items = r.json().get("results", [])
         desc = [p for p in items if p.get("original_price") and p.get("price") and p["original_price"] > p["price"]]
