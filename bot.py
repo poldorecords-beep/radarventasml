@@ -1,61 +1,79 @@
 import os, time, random, logging, requests
 from datetime import datetime
+
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 CHANNEL = "@radarventasml"
-AFFILIATE_ID = os.environ.get("AFFILIATE_ID", "")
-ML_ACCESS_TOKEN = os.environ.get("ML_ACCESS_TOKEN", "")
-HORAS = 4
+AMAZON_TAG = os.environ.get("AMAZON_TAG", "radarventasml-20")
+RAPIDAPI_KEY = os.environ.get("RAPIDAPI_KEY", "")
+HORAS = 6
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
-BUSQUEDAS = ["auriculares bluetooth","smartwatch","cargador rapido","notebook","tablet","cafetera","aspiradora","zapatillas running","camara de seguridad","power bank","mouse inalambrico","silla gamer"]
-def get_oferta():
-    q = random.choice(BUSQUEDAS)
+
+def get_deals():
     try:
-        headers = {"User-Agent": "Mozilla/5.0", "Authorization": "Bearer " + ML_ACCESS_TOKEN}
-        r = requests.get("https://api.mercadolibre.com/sites/MLA/search", headers=headers, params={"q":q,"sort":"relevance","limit":20,"condition":"new"}, timeout=15)
+        url = "https://real-time-amazon-data.p.rapidapi.com/deals-v2"
+        headers = {
+            "X-RapidAPI-Key": RAPIDAPI_KEY,
+            "X-RapidAPI-Host": "real-time-amazon-data.p.rapidapi.com"
+        }
+        params = {"country": "US", "min_product_star_rating": "ALL", "price_range": "ALL", "discount_range": "ALL"}
+        r = requests.get(url, headers=headers, params=params, timeout=15)
         r.raise_for_status()
-        items = r.json().get("results", [])
-        desc = [p for p in items if p.get("original_price") and p.get("price") and p["original_price"] > p["price"]]
-        pool = desc if desc else items
-        return (random.choice(pool[:8]), q) if pool else (None, None)
+        deals = r.json().get("data", {}).get("deals", [])
+        return deals if deals else []
     except Exception as e:
         log.error("API error: %s", e)
-        return (None, None)
-def make_link(url):
-    sep = "&" if "?" in url else "?"
-    return "%s%saff_id=%s" % (url, sep, AFFILIATE_ID)
-def make_msg(p, q):
-    titulo = p.get("title","")[:70]
-    precio = p.get("price", 0)
-    orig = p.get("original_price")
-    url = p.get("permalink","")
+        return []
+
+def make_link(asin):
+    return "https://www.amazon.com/dp/%s?tag=%s" % (asin, AMAZON_TAG)
+
+def make_msg(deal):
+    titulo = deal.get("deal_title", "")[:70]
+    precio = deal.get("deal_price", {}).get("display_amount", "")
+    orig = deal.get("list_price", {}).get("display_amount", "")
+    asin = deal.get("deal_photo", "")
+    asin = deal.get("asin", "")
+    pct = deal.get("discount_percent", "")
     desc = ""
-    if orig and orig > precio:
-        pct = int((1 - precio/orig)*100)
-        desc = "-%d%% OFF\n" % pct
-    return "%s\n\n$%s\n%sVer: %s\n%s hs" % (titulo, "{:,.0f}".format(precio).replace(",","."), desc, make_link(url), datetime.now().strftime("%H:%M"))
+    if pct:
+        desc = "🔥 -%s%% OFF\n" % pct
+    return "%s%s\n\n%s\nAntes: %s\nVer: %s\n%s hs" % (
+        desc, titulo, precio, orig,
+        make_link(asin), datetime.now().strftime("%H:%M")
+    )
+
 def send(msg):
     try:
-        r = requests.post("https://api.telegram.org/bot%s/sendMessage" % TELEGRAM_TOKEN, json={"chat_id":CHANNEL,"text":msg}, timeout=15)
+        r = requests.post(
+            "https://api.telegram.org/bot%s/sendMessage" % TELEGRAM_TOKEN,
+            json={"chat_id": CHANNEL, "text": msg},
+            timeout=15
+        )
         r.raise_for_status()
         log.info("Enviado OK")
     except Exception as e:
         log.error("Telegram error: %s", e)
+
 def run():
     log.info("Bot iniciando")
-    if not TELEGRAM_TOKEN or not AFFILIATE_ID:
+    if not TELEGRAM_TOKEN or not RAPIDAPI_KEY:
         log.error("Faltan variables")
         return
     while True:
         try:
-            p, q = get_oferta()
-            if p:
-                send(make_msg(p, q))
+            deals = get_deals()
+            if deals:
+                deal = random.choice(deals[:10])
+                send(make_msg(deal))
             else:
+                log.warning("Sin deals, reintentando en 30 min")
                 time.sleep(1800)
                 continue
         except Exception as e:
             log.error("Error: %s", e)
         time.sleep(HORAS * 3600)
+
 if __name__ == "__main__":
     run()
