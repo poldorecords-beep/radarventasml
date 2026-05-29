@@ -20,7 +20,6 @@ def get_deals():
         params = {"country": "US", "min_product_star_rating": "ALL", "price_range": "ALL", "discount_range": "ALL"}
         r = requests.get(url, headers=headers, params=params, timeout=15)
         r.raise_for_status()
-        log.info("Deal sample: %s", r.json().get("data", {}).get("deals", [{}])[0])
         deals = r.json().get("data", {}).get("deals", [])
         return deals if deals else []
     except Exception as e:
@@ -34,18 +33,18 @@ def make_link(asin):
 
 def make_msg(deal):
     titulo = deal.get("deal_title", "")[:70]
-    precio = deal.get("deal_price", {}).get("display_amount", "")
-    orig = deal.get("list_price", {}).get("display_amount", "")
-    asin = deal.get("asin", "") or deal.get("deal_id", "")
-    pct = deal.get("discount_percent", "")
+    precio = deal.get("deal_price", {}).get("amount", "")
+    orig = deal.get("list_price", {}).get("amount", "")
+    asin = deal.get("product_asin", "")
+    pct = deal.get("savings_percentage", "")
     desc = ""
     if pct:
         desc = "🔥 -%s%% OFF\n" % pct
     msg = "%s%s" % (desc, titulo)
     if precio:
-        msg += "\n\n%s" % precio
+        msg += "\n\nPrecio: USD %s" % precio
     if orig:
-        msg += "\nAntes: %s" % orig
+        msg += "\nAntes: USD %s" % orig
     msg += "\nVer: %s\n%s hs" % (make_link(asin), datetime.now().strftime("%H:%M"))
     return msg
 
