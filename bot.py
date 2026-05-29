@@ -20,6 +20,7 @@ def get_deals():
         params = {"country": "US", "min_product_star_rating": "ALL", "price_range": "ALL", "discount_range": "ALL"}
         r = requests.get(url, headers=headers, params=params, timeout=15)
         r.raise_for_status()
+        log.info("Deal sample: %s", r.json().get("data", {}).get("deals", [{}])[0])
         deals = r.json().get("data", {}).get("deals", [])
         return deals if deals else []
     except Exception as e:
@@ -27,22 +28,26 @@ def get_deals():
         return []
 
 def make_link(asin):
-    return "https://www.amazon.com/dp/%s?tag=%s" % (asin, AMAZON_TAG)
+    if asin:
+        return "https://www.amazon.com/dp/%s?tag=%s" % (asin, AMAZON_TAG)
+    return "https://www.amazon.com?tag=%s" % AMAZON_TAG
 
 def make_msg(deal):
     titulo = deal.get("deal_title", "")[:70]
     precio = deal.get("deal_price", {}).get("display_amount", "")
     orig = deal.get("list_price", {}).get("display_amount", "")
-    asin = deal.get("deal_photo", "")
-    asin = deal.get("asin", "")
+    asin = deal.get("asin", "") or deal.get("deal_id", "")
     pct = deal.get("discount_percent", "")
     desc = ""
     if pct:
         desc = "🔥 -%s%% OFF\n" % pct
-    return "%s%s\n\n%s\nAntes: %s\nVer: %s\n%s hs" % (
-        desc, titulo, precio, orig,
-        make_link(asin), datetime.now().strftime("%H:%M")
-    )
+    msg = "%s%s" % (desc, titulo)
+    if precio:
+        msg += "\n\n%s" % precio
+    if orig:
+        msg += "\nAntes: %s" % orig
+    msg += "\nVer: %s\n%s hs" % (make_link(asin), datetime.now().strftime("%H:%M"))
+    return msg
 
 def send(msg):
     try:
