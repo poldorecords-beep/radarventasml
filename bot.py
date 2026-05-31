@@ -5,6 +5,12 @@ TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 CHANNEL = "@radarventasml"
 AMAZON_TAG = os.environ.get("AMAZON_TAG", "radarventasml-20")
 RAPIDAPI_KEY = os.environ.get("RAPIDAPI_KEY", "")
+
+X_CONSUMER_KEY = os.environ.get("X_CONSUMER_KEY", "")
+X_CONSUMER_SECRET = os.environ.get("X_CONSUMER_SECRET", "")
+X_ACCESS_TOKEN = os.environ.get("X_ACCESS_TOKEN", "")
+X_ACCESS_TOKEN_SECRET = os.environ.get("X_ACCESS_TOKEN_SECRET", "")
+
 HORAS = 6
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -48,7 +54,21 @@ def make_msg(deal):
     msg += "\nVer: %s\n%s hs" % (make_link(asin), datetime.now().strftime("%H:%M"))
     return msg
 
-def send(msg):
+def make_tweet(deal):
+    titulo = deal.get("deal_title", "")[:60]
+    precio = deal.get("deal_price", {}).get("amount", "")
+    asin = deal.get("product_asin", "")
+    pct = deal.get("savings_percentage", "")
+    desc = ""
+    if pct:
+        desc = "🔥 -%s%% OFF | " % pct
+    tweet = "%s%s" % (desc, titulo)
+    if precio:
+        tweet += " | USD %s" % precio
+    tweet += "\n%s" % make_link(asin)
+    return tweet[:280]
+
+def send_telegram(msg):
     try:
         r = requests.post(
             "https://api.telegram.org/bot%s/sendMessage" % TELEGRAM_TOKEN,
@@ -56,9 +76,23 @@ def send(msg):
             timeout=15
         )
         r.raise_for_status()
-        log.info("Enviado OK")
+        log.info("Telegram: Enviado OK")
     except Exception as e:
         log.error("Telegram error: %s", e)
+
+def send_tweet(msg):
+    try:
+        import tweepy
+        client = tweepy.Client(
+            consumer_key=X_CONSUMER_KEY,
+            consumer_secret=X_CONSUMER_SECRET,
+            access_token=X_ACCESS_TOKEN,
+            access_token_secret=X_ACCESS_TOKEN_SECRET
+        )
+        client.create_tweet(text=msg)
+        log.info("X: Enviado OK")
+    except Exception as e:
+        log.error("X error: %s", e)
 
 def run():
     log.info("Bot iniciando")
@@ -70,7 +104,8 @@ def run():
             deals = get_deals()
             if deals:
                 deal = random.choice(deals[:10])
-                send(make_msg(deal))
+                send_telegram(make_msg(deal))
+                send_tweet(make_tweet(deal))
             else:
                 log.warning("Sin deals, reintentando en 30 min")
                 time.sleep(1800)
